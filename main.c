@@ -4,76 +4,71 @@
 #include <string.h>
 
 #ifdef _WIN32
-#include <windows.h>
-typedef SSIZE_T ssize_t;
+typedef __int64 ssize_t;
 
 ssize_t getline(char** lineptr, size_t* n, FILE* stream) {
-    if (lineptr == NULL || n == NULL || stream == NULL) {
-        return -1;
-    }
-
     if (*lineptr == NULL || *n == 0) {
         *n = 128;
         *lineptr = malloc(*n);
         if (*lineptr == NULL) return -1;
     }
 
-    size_t pos = 0;
-    int c;
+    char* result = fgets(*lineptr, (int)*n, stream);
+    if (result == NULL) return -1;
+    
+    size_t len = strlen(*lineptr);
 
-    while ((c = fgetc(stream)) != EOF) {
-        if (pos + 1 >= *n) {
-            size_t new_n = *n * 2;
-            char* new_ptr = realloc(*lineptr, new_n);
-            if (new_ptr == NULL) return -1;
-            *lineptr = new_ptr;
-            *n = new_n;
-        }
-
-        (*lineptr)[pos++] = (char)c;
-        if (c == '\n') break;
+    while (len > 0 && (*lineptr)[len - 1] != '\n' && !feof(stream)) {
+        *n *= 2;
+        char* new_ptr = realloc(*lineptr, *n);
+        if (new_ptr == NULL) return -1;
+        *lineptr = new_ptr;
+        if (fgets(*lineptr + len, (int)(*n - len), stream) == NULL) break;
+        len = strlen(*lineptr);
     }
 
-    if (pos == 0 && c == EOF) return -1;
-
-    (*lineptr)[pos] = '\0';
-    return (ssize_t)pos;
+    return (ssize_t)len;
 }
 #endif
 
 typedef struct {
-    char* buffer;
-    size_t buffer_length;
-    ssize_t input_length;
+  char* buffer;
+  size_t buffer_length;
+  ssize_t input_length;
 } InputBuffer;
 
 InputBuffer* new_input_buffer() {
-    InputBuffer* input_buffer = malloc(sizeof(InputBuffer));
-    if (input_buffer == NULL) {
-        printf("Error allocating memory for InputBuffer\n");
-        exit(EXIT_FAILURE);
-    }
-    input_buffer->buffer = NULL;
-    input_buffer->buffer_length = 0;
-    input_buffer->input_length = 0;
+  InputBuffer* input_buffer = malloc(sizeof(InputBuffer));
+  if (input_buffer == NULL) {
+    printf("Error allocating InputBuffer\n");
+    exit(EXIT_FAILURE);
+  }
+  input_buffer->buffer = NULL;
+  input_buffer->buffer_length = 0;
+  input_buffer->input_length = 0;
 
-    return input_buffer;
+  return input_buffer;
 }
 
 void print_prompt() { printf("db > "); }
 
 void read_input(InputBuffer* input_buffer) {
-    ssize_t bytes_read =
-        getline(&(input_buffer->buffer), &(input_buffer->buffer_length), stdin);
+  ssize_t bytes_read =
+      getline(&(input_buffer->buffer), &(input_buffer->buffer_length), stdin);
 
-    if (bytes_read <= 0) {
-        printf("Error reading input\n");
-        exit(EXIT_FAILURE);
-    }
+  if (bytes_read <= 0) {
+    printf("Error reading input\n");
+    exit(EXIT_FAILURE);
+  }
 
-    // Ignore trailing newline
-    input_buffer->input_length = (ssize_t)(bytes_read - 1);
-    input_buffer->buffer[bytes_read - 1] = 0;
+  if (input_buffer->buffer == NULL) {
+    printf("Error: input buffer is null after reading\n");
+    exit(EXIT_FAILURE);
+  }
+
+  // Ignore trailing newline
+  input_buffer->input_length = bytes_read - 1;
+  input_buffer->buffer[bytes_read - 1] = 0;
 }
 
 void close_input_buffer(InputBuffer* input_buffer) {
@@ -82,16 +77,19 @@ void close_input_buffer(InputBuffer* input_buffer) {
 }
 
 int main(int argc, char* argv[]) {
-    InputBuffer* input_buffer = new_input_buffer();
-    while (true) {
-        print_prompt();
-        read_input(input_buffer);
+  InputBuffer* input_buffer = new_input_buffer();
+  while (true) {
+    print_prompt();
+    read_input(input_buffer);
 
-        if (strcmp(input_buffer->buffer, ".exit") == 0) {
-            close_input_buffer(input_buffer);
-            exit(EXIT_SUCCESS);
-        } else {
-            printf("Unrecognized command '%s'.\n", input_buffer->buffer);
-        }
+    if (strcmp(input_buffer->buffer, ".exit") == 0) {
+    if (input_buffer->buffer[0] == '.') {
+      switch (do_meta_command(input_buffer)) {
+        case (META_COMMAND_SUCCESS):
+          continue;
+          case (META_)
+      }
     }
+    }
+  }
 }
